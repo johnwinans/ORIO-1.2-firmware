@@ -1,0 +1,96 @@
+20191108 jrw
+
+DANGER WILL ROBINSON!!!!
+
+THIS ASSUMES YOUR SD CARD IS MOUNTED ON /dev/sdc
+
+IF THIS IS NOT TRUE THEN THE FOLLOWING WILL LIKELY DESTROY YOUR FILESYSTEMS!!!
+
+
+
+#########################################################
+# Erase the SD card so your OS does not do annoying 'helpful' things.
+
+dd if=/dev/zero of=/dev/sdc bs=8192 count=100
+
+#########################################################
+# Get a copy of rasbian
+
+wget https://downloads.raspberrypi.org/NOOBS_latest
+
+# create a partition on your now wiped SD card
+sdo parted /dev/sdc
+mklabel msdos
+mkpart primary fat32 16.8MB 63GB
+quit
+
+#########################################################
+# Format the SD card 
+
+mkdosfs -F 32 -I /dev/sdc1
+
+
+#########################################################
+# Copy the files onto the FAT32 filesystem from the zip file:
+
+mv NOOBS_latest NOOBS_latest.zip
+MEDIA=`echo /media/${USER}/*`
+unzip -d ${MEDIA} NOOBS_latest
+
+#########################################################
+# tell the PI to turn on SSH by default
+touch ${MEDIA}/ssh
+
+#########################################################
+# Boot the PI and install Rasbian
+
+# Login as 'pi' and set a suitable password
+
+#########################################################
+# Use the config tool to turn on/off things of interest.
+# I turn on the SPI and shut off bluetooth & disable 
+# the default desktop.
+
+sudo raspi-config
+
+# There is a GUI to set a password and do the following updates.
+# But I just do them on the command-line.
+
+sudo apt update
+sudo apt upgrade
+sudo reboot
+
+# Install a useful vim version of vi:
+
+sudo apt-get install vim
+
+#########################################################
+# Put this in ~/.vimrc before you go insane:
+
+set ts=4
+setlocal cm=blowfish2
+set mouse=""
+
+#########################################################
+# Add this to the end of .bashrc
+
+export EDITOR='vi'
+
+
+#########################################################
+# If not already done, enable sshd server:
+
+sudo raspi-config 
+	Select Interfacing Options.
+	Navigate to and select SSH
+	Configure the WiFi
+
+#########################################################
+# put useful keys into ~/.ssh/authorized_keys
+
+
+#########################################################
+# Put this into your crontab when you are ready for the PI to 
+# run a useful program whenever it reboots!
+
+@reboot $HOME/ORIO-1.2-firmware/pi/reboot.rc
