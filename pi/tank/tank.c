@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <getopt.h>
+#include <string.h>
 
 #include <arpa/inet.h>	// htons
 
@@ -46,8 +47,10 @@ static void pabort(const char *s)
 void hexDump(const void *a, unsigned long len, uint32_t addr)
 {
 	const unsigned char *p = (const unsigned char*)a;
+	int first = 1;
 	if (addr%16 != 0)
 	{
+		first = 0;
 		printf("%8x:    ", addr);
 		int i = addr%16;
 		while(--i)
@@ -56,11 +59,16 @@ void hexDump(const void *a, unsigned long len, uint32_t addr)
 	while(len)
 	{
 		if (addr%16 == 0)
-			printf("\r\n%8x: ", addr);
+		{
+			if (!first)
+				printf("\r\n");
+			printf("%8x: ", addr);
+		}
 		printf("%s%02x", (addr%16 == 8)?"-":" ", *p);
 		++p;
 		++addr;
 		--len;
+		first = 0;
 	}
 	printf("\r\n");
 }
@@ -120,65 +128,76 @@ size_t get_axis_state(struct js_event *event, int16_t axes[MAX_AXES])
     return axis;
 }
 
-struct msg1
-{
-	int16_t		pwm[10];	// 4-13
-	uint16_t	dio;		// 14
-	uint16_t	led;		// 15
-	uint16_t	relay;		// 16
-	uint16_t	solenoid;	// 17
-};
-
-struct msg2
-{
-	uint16_t	switches;	// 4
-	uint16_t	adc[8];		// 5-12
-	uint16_t	vbatt;		// 13
-	uint16_t	dio;		// 14
-};
-
-struct msg
+typedef struct msgHeader
 {
 	uint16_t	header;		// 0 0xa55a
 	uint16_t	msgType;	// 1
 	uint16_t	length;		// 2
 	uint16_t	pad;		// 3
-	union
-	{
-		struct msg1	m1;
-		struct msg2 m2;
-	} u;
+} msgHeader;
+
+typedef struct msgTrailer
+{
 	uint32_t	crc;		// CRC32
-};
+} msgTrailer;
+
+typedef struct msg1
+{
+	msgHeader	h;			// 0-3
+	int16_t		pwm[10];	// 4-13
+	uint16_t	dio;		// 14
+	uint16_t	led;		// 15
+	uint16_t	relay;		// 16
+	uint16_t	solenoid;	// 17
+	msgTrailer	t;			// 18-19
+} msg1;
+
+typedef struct msg2
+{
+	msgHeader	h;			// 0-3
+	uint16_t	switches;	// 4
+	uint16_t	adc[8];		// 5-12
+	uint16_t	vbatt;		// 13
+	uint16_t	dio;		// 14
+	uint16_t	pad;		// 15
+	msgTrailer	t;			// 16-17
+} msg2;
 
 /**
 ***************************************************************************/
 static void transfer(int fd, int16_t left, int16_t right)
 {
 	int ret;
+	typedef union
+	{
+		msg1 tx;
+		msg2 rx;
+	}buf;
+	
+	buf tx;
+	buf rx;
 
-	struct msg tx = { 0 };
-	struct msg rx = { 0 };
 	static int led = 0x100;
 
-	tx.header = htons(0xa55a);
-	tx.msgType = htons(0x0001);
-	tx.length = htons(sizeof(tx));
-	tx.u.m1.pwm[0] = htons(right);
-	tx.u.m1.pwm[1] = htons(left);
-	tx.u.m1.pwm[2]= htons(left);
-	tx.u.m1.pwm[3] = htons(left);
-	tx.u.m1.pwm[4] = htons(left);
-	tx.u.m1.pwm[5] = htons(left);
-	tx.u.m1.pwm[6] = htons(left);
-	tx.u.m1.pwm[7] = htons(left);
-	tx.u.m1.pwm[8] = htons(left);
-	tx.u.m1.pwm[9] = htons(left);
-	tx.u.m1.dio = htons(0);
-	tx.u.m1.led = htons(~led);
-	tx.u.m1.relay = htons(led);
-	tx.u.m1.solenoid = htons(led);
-	tx.crc = htonl(crc32(0xffffffff, (unsigned char*)&tx, sizeof(tx)));
+	tx.tx.h.header = htons(0xa55a);
+	tx.tx.h.msgType = htons(0x0001);
+	tx.tx.h.length = htons(sizeof(tx));
+	tx.tx.h.pad = 0;
+	tx.tx.pwm[0] = htons(right);
+	tx.tx.pwm[1] = htons(left);
+	tx.tx.pwm[2]= htons(left);
+	tx.tx.pwm[3] = htons(left);
+	tx.tx.pwm[4] = htons(left);
+	tx.tx.pwm[5] = htons(left);
+	tx.tx.pwm[6] = htons(left);
+	tx.tx.pwm[7] = htons(left);
+	tx.tx.pwm[8] = htons(left);
+	tx.tx.pwm[9] = htons(left);
+	tx.tx.dio = htons(0);
+	tx.tx.led = htons(~led);
+	tx.tx.relay = htons(led);
+	tx.tx.solenoid = htons(led);
+	tx.tx.t.crc = htonl(crc32(0, (unsigned char*)&tx, sizeof(tx)-sizeof(msgTrailer)));
 
 	led >>= 1;
 	if (!led)
@@ -197,31 +216,38 @@ static void transfer(int fd, int16_t left, int16_t right)
 	if (ret < 1)
 		pabort("can't send spi message");
 
+#define DEBUG_PRINT
+#ifdef DEBUG_PRINT
 	printf("TX:\n");
 	hexDump(&tx, sizeof(tx), 0);
 
 	printf("RX:\n");
 	hexDump(&rx, sizeof(rx), 0);
 
-	rx.header = ntohs(rx.header);
-	rx.msgType = ntohs(rx.msgType);
-	rx.length = ntohs(rx.length);
+	rx.rx.t.crc = ntohl(rx.rx.t.crc);
+	uint32_t rxcrc = crc32(0, (unsigned char*)&rx, sizeof(rx.rx)-sizeof(msgTrailer));
+	printf(" CRC: %08x %s\n", rxcrc, rxcrc==rx.rx.t.crc ? "+" : "error");
 
-	printf("msg: %04x, %04x, %04x\n", rx.header, rx.msgType, rx.length);
+	rx.rx.h.header = ntohs(rx.rx.h.header);
+	rx.rx.h.msgType = ntohs(rx.rx.h.msgType);
+	rx.rx.h.length = ntohs(rx.rx.h.length);
+
+	printf("msg: %04x, %04x, %04x\n", rx.rx.h.header, rx.rx.h.msgType, rx.rx.h.length);
 
 	for (int i=0; i < 8; ++i)
 	{
-		float f = ntohs(rx.u.m2.adc[i]) * (3.3/0x10000)*2.0;
+		float f = ntohs(rx.rx.adc[i]) * (3.3/0x10000)*2.0;
 		printf("%2d: %f\n", i, f);
 	}
-	float f = ntohs(rx.u.m2.vbatt)*(3.3/0x10000)*(33.0+3.3)/3.3;
+	float f = ntohs(rx.rx.vbatt)*(3.3/0x10000)*(33.0+3.3)/3.3;
 	printf("+V: %f\n", f);
 	
-	printf("DIO: %04x\n", ntohs(rx.u.m2.dio));
-	printf(" SW: %04x\n", ntohs(rx.u.m2.switches));
+	printf("DIO: %04x\n", ntohs(rx.rx.dio));
+	printf(" SW: %04x\n", ntohs(rx.rx.switches));
+#endif
 
 // XXX
-//	usleep(25000);	// XXX wait for the ORIO to print its message status
+	//usleep(100000);	// XXX wait for the ORIO to print its message status
 }
 
 /**
@@ -288,6 +314,9 @@ int main(int argc, char *argv[])
 	int16_t tank[2] = {0};
     size_t axis;
 
+	//const char *s = "The quick brown fox jumps over the lazy dog";
+	//printf("   CRC32: %lX\n", crc32(0, (const void*)s, strlen(s)));
+
 	spiInit();
 
     if (argc > 1)
@@ -314,8 +343,11 @@ int main(int argc, char *argv[])
 
         case JS_EVENT_AXIS:
             axis = get_axis_state(&event, axes);
+
+#ifdef DEBUG_PRINT
             if (axis < MAX_AXES)
                 printf("Axis %zu at %d\n", axis, axes[axis]);
+#endif
 
 			if (axis == 1)
 			{
