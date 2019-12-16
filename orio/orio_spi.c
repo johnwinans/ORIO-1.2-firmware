@@ -85,6 +85,37 @@ static bool processControlMessage(const uint16_t *buf, uint16_t len)
 	return true;
 }
 
+#if 0
+static void crc_test()
+{
+	char buf[] = "The quick brown fox jumps over the lazy dog";
+	CRC_1_PERIPHERAL->SEED = 0xffffffff;
+	//CRC_1_PERIPHERAL->SEED = 0;
+
+	int len = strlen(buf);
+	for (int i=0; i<len; ++i)
+		*((volatile uint8_t *)&(CRC_1_PERIPHERAL->WR_DATA)) = buf[i];
+	// should be 0414fa339
+	printf("crc=%08x\r\n", CRC_1_PERIPHERAL->SUM);
+}
+#endif
+
+
+static void spiTX16(uint16_t i)
+{
+	SPI_WriteData(SPI_1_PERIPHERAL, i, 0);
+	*((volatile uint8_t *)&(CRC_1_PERIPHERAL->WR_DATA)) = (uint8_t)(i>>8&0x0ff);
+	*((volatile uint8_t *)&(CRC_1_PERIPHERAL->WR_DATA)) = (uint8_t)(i&0x0ff);
+}
+
+static void spiTxHeader(uint16_t type, uint16_t len)
+{
+	CRC_1_PERIPHERAL->SEED = 0xffffffff;
+    spiTX16(0xa55a);		// message header
+    spiTX16(type);			// message type
+    spiTX16(len);			// length
+    spiTX16(0);				// padding
+}
 
 /**
  *
@@ -94,19 +125,15 @@ void spitest()
     // Make the ADC free-run collecting samples that we can get any time
     ADC_EnableConvSeqABurstMode(ADC_1_PERIPHERAL, true);
 
-
-
 	SPI_Type *base = SPI_1_PERIPHERAL;
 	printf("SPI message loop entered\r\n");
-
 
 	// prime the FIFO for the next transfer
     base->FIFOCFG |= SPI_FIFOCFG_EMPTYTX_MASK | SPI_FIFOCFG_EMPTYRX_MASK;
     base->FIFOSTAT |= SPI_FIFOSTAT_TXERR_MASK | SPI_FIFOSTAT_RXERR_MASK;
-	SPI_WriteData(base, 0xa55a, 0);		// message header
-	SPI_WriteData(base, 0x0002, 0);		// message type
-	SPI_WriteData(base, 40, 0);			// length
-	SPI_WriteData(base, 0, 0);			// padding
+
+
+    spiTxHeader(0x0002, 34);
 
 	uint16_t buf[100] = {0};
 	int pos = 0;
@@ -119,16 +146,10 @@ void spitest()
 
 			// XXX read and toss the data if there is nowhere to put it. XXX
 
-			if (pos < 18) // XXX the CRC does not work right
-			{
-				// force 8-bit writes
-				*((volatile uint8_t *)&(CRC_1_PERIPHERAL->WR_DATA)) = (uint8_t)(buf[pos]>>8);
-				*((volatile uint8_t *)&(CRC_1_PERIPHERAL->WR_DATA)) = (uint8_t)(buf[pos]&0xff);
-			}
 			switch(pos)
 			{
 			case 0:
-				SPI_WriteData(base, getSwitch(), 0);
+				spiTX16(getSwitch());
 				break;
 
 			case 1:
@@ -140,18 +161,25 @@ void spitest()
 			case 7:
 			case 8:
 			case 9:
-				SPI_WriteData(base, ADC0->DAT[pos+2]&0x0ffff, 0);	// send the data in raw ADC units
+				spiTX16(ADC0->DAT[pos+2]&0x0ffff);	// send the data in raw ADC units
 				// This takes too long to calculate in real time... the the user deal with it :-D
 //				SPI_WriteData(base, (uint16_t)(((ADC0->DAT[pos+2]&0x0ffff)*(3.3/0x10000)*2.0)*1000), 0);
 				break;
 
 			case 10:
-				SPI_WriteData(base, getDIO(), 0);
+				spiTX16(getDIO());
 					break;
-			break;
+
+			case 11:
+				{
+					uint32_t crc = CRC_1_PERIPHERAL->SUM;
+					spiTX16(crc>>16&0x0ffff);
+					spiTX16(crc&0x0ffff);
+				}
+				break;
 
 			default:
-				SPI_WriteData(base, 0x1111, 0);
+				spiTX16(0x1111);
 			}
 
 			++pos;
@@ -161,8 +189,6 @@ void spitest()
 			// SSEL just became active (start of message)
 			base->STAT = SPI_STAT_SSA_MASK;
 			pos = 0;
-			CRC_1_PERIPHERAL->SEED = 0xffffffff;
-
 		}
 		if (base->STAT & SPI_STAT_SSD_MASK)
 		{
@@ -176,17 +202,16 @@ void spitest()
 		    base->FIFOCFG |= SPI_FIFOCFG_EMPTYTX_MASK | SPI_FIFOCFG_EMPTYRX_MASK;
 		    base->FIFOSTAT |= SPI_FIFOSTAT_TXERR_MASK | SPI_FIFOSTAT_RXERR_MASK;
 
-		    SPI_WriteData(base, 0xa55a, 0);		// message header
-			SPI_WriteData(base, 0x0002, 0);		// message type
-			SPI_WriteData(base, 40, 0);			// length
-			SPI_WriteData(base, 0, 0);			// padding
-
+			int elements = pos>=sizeof(buf)/sizeof(buf[0])?sizeof(buf)/sizeof(buf[0]):pos;
 #if 0
-			hexDump(buf, len*2);
+			hexDump(buf, elements*2);
 			printf("stat=%08x, len=%d, 0: %5d, 1: %5d, DIO=%04x\r\n", fifostat, pos, (int16_t)buf[2], (int16_t)buf[3], buf[12]);
 			printf("CRC=%08x\r\n", CRC_1_PERIPHERAL->SUM);
 #endif
-			processControlMessage(buf, pos>=sizeof(buf)/sizeof(buf[0])?sizeof(buf)/sizeof(buf[0]):pos);
+
+			processControlMessage(buf, elements);
+
+			spiTxHeader(0x0002, 34);
 		}
 	}
 }

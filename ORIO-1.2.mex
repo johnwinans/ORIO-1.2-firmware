@@ -1056,13 +1056,13 @@
                      </config_set>
                   </instance>
                   <instance name="CRC_1" type="lpc_crc" type_id="lpc_crc_5f5f079056dd2a843b86fbb64c18c8cd" mode="general" peripheral="CRC_ENGINE" enabled="true">
-                     <config_set name="fsl_crc">
+                     <config_set name="fsl_crc" quick_selection="crc_32">
                         <struct name="crc_config">
                            <setting name="polynomial" value="kCRC_Polynomial_CRC_32"/>
-                           <setting name="reverseIn" value="false"/>
+                           <setting name="reverseIn" value="true"/>
                            <setting name="complementIn" value="false"/>
-                           <setting name="reverseOut" value="false"/>
-                           <setting name="complementOut" value="false"/>
+                           <setting name="reverseOut" value="true"/>
+                           <setting name="complementOut" value="true"/>
                            <setting name="seed" value="0xFFFFFFFF"/>
                         </struct>
                      </config_set>
