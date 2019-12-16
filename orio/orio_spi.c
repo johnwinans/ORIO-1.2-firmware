@@ -34,6 +34,29 @@
 #include "orio_pwm.h"
 #include "hexdump.h"
 
+
+#if 0
+/**
+ * @param data Buffer of data to calculate.
+ * @param dataSize number of bytes in 'data'
+ */
+static uint32_t crc32(const void *data, size_t dataSize)
+{
+	CRC_1_PERIPHERAL->SEED = 0xffffffff;
+	CRC_WriteData(CRC_1_PERIPHERAL, (const uint8_t*)data, dataSize);
+	return CRC_1_PERIPHERAL->SUM;
+}
+#endif
+
+static uint32_t crc32_16le(const void *data, size_t dataSize)
+{
+	CRC_1_PERIPHERAL->SEED = 0xffffffff;
+	uint16_t *p = (uint16_t*)data;
+	for (int i=0; i<dataSize; ++i)
+		*((__O uint16_t *)&(CRC_1_PERIPHERAL->WR_DATA)) = (p[i]>>8)|(p[i]<<8);
+	return CRC_1_PERIPHERAL->SUM;
+}
+
 /**
  * @param len Message length expressed in 16-bit words.
  *
@@ -65,9 +88,17 @@ static bool processControlMessage(const uint16_t *buf, uint16_t len)
 
 	}
 
-	// XXX validate the message's CRC (either here or while it is arriving
+	// verify the CRC in the received message
+	uint32_t crc = crc32_16le(buf, len-2);
+	uint32_t mcrc = (buf[18]<<16)|(buf[19]);
+	if (crc != mcrc)
+	{
+		printf("CRC FAIL.  Got %08x, want %08x\n", crc, mcrc);
+		hexDump(buf, len*2);
+		return false;
+	}
 
-	// XXX set the PWMs
+	// set the PWMs
 	for (int i=0; i<10; ++i)
 	{
 		int32_t v = ((int16_t)buf[4+i]);	// -32768..32767
@@ -133,7 +164,7 @@ void spitest()
     base->FIFOSTAT |= SPI_FIFOSTAT_TXERR_MASK | SPI_FIFOSTAT_RXERR_MASK;
 
 
-    spiTxHeader(0x0002, 34);
+    spiTxHeader(0x0002, 36);
 
 	uint16_t buf[100] = {0};
 	int pos = 0;
@@ -171,7 +202,12 @@ void spitest()
 					break;
 
 			case 11:
+				spiTX16(0);	// padding to keep the CRC on a 32-bit boundary
+				break;
+
+			case 12:
 				{
+					// this is tolerable because we only prime the FIFO with 4 words (and it can hold 8)
 					uint32_t crc = CRC_1_PERIPHERAL->SUM;
 					spiTX16(crc>>16&0x0ffff);
 					spiTX16(crc&0x0ffff);
@@ -211,7 +247,7 @@ void spitest()
 
 			processControlMessage(buf, elements);
 
-			spiTxHeader(0x0002, 34);
+			spiTxHeader(0x0002, 36);
 		}
 	}
 }
