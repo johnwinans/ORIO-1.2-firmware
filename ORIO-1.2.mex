@@ -149,6 +149,11 @@
                         <data>true</data>
                      </feature>
                   </dependency>
+                  <dependency resourceType="Peripheral" resourceId="CAN1" description="Peripheral CAN1 is not initialized" problem_level="1" source="Pins:BOARD_InitPins">
+                     <feature name="initialized" evaluation="equal">
+                        <data>true</data>
+                     </feature>
+                  </dependency>
                   <dependency resourceType="SWComponent" resourceId="platform.drivers.common" description="Pins initialization requires the COMMON Driver in the project." problem_level="2" source="Pins:BOARD_InitPins">
                      <feature name="enabled" evaluation="equal" configuration="core0">
                         <data>true</data>
@@ -484,6 +489,8 @@
                   <pin peripheral="FLEXCOMM3" signal="RTS_SCL_SSEL1" pin_num="125" pin_signal="PIO0_7/FC3_RTS_SCL_SSEL1/SD_CLK/FC5_SCK/FC1_SCK/PDM1_CLK/EMC_D(5)/ENET_RX_CLK"/>
                   <pin peripheral="FLEXCOMM3" signal="SSEL2" pin_num="136" pin_signal="PIO0_9/FC3_SSEL2/SD_POW_EN/FC5_TXD_SCL_MISO/SCI1_IO/EMC_D(7)"/>
                   <pin peripheral="FLEXCOMM3" signal="SSEL3" pin_num="133" pin_signal="PIO0_8/FC3_SSEL3/SD_CMD/FC5_RXD_SDA_MOSI/SWO/PDM1_DATA/EMC_D(6)"/>
+                  <pin peripheral="CAN1" signal="CAN_RD" pin_num="196" pin_signal="PIO0_0/CAN1_RD/FC3_SCK/CTIMER0_MAT0/SCT0_GPI0/PDM0_CLK"/>
+                  <pin peripheral="CAN1" signal="CAN_TD" pin_num="207" pin_signal="PIO0_1/CAN1_TD/FC3_CTS_SDA_SSEL0/CTIMER0_CAP0/SCT0_GPI1/PDM0_DATA"/>
                </pins>
             </function>
          </functions_list>
@@ -528,7 +535,7 @@
                   <clock_output id="FXCOM6_clock.outFreq" value="12 MHz" locked="false" accuracy=""/>
                   <clock_output id="MAIN_clock.outFreq" value="180 MHz" locked="false" accuracy=""/>
                   <clock_output id="MCAN1_clock.outFreq" value="10 MHz" locked="false" accuracy=""/>
-                  <clock_output id="SCT_clock.outFreq" value="1 MHz" locked="false" accuracy=""/>
+                  <clock_output id="SCT_clock.outFreq" value="180 MHz" locked="false" accuracy=""/>
                   <clock_output id="SYSPLL_clock.outFreq" value="180 MHz" locked="false" accuracy=""/>
                   <clock_output id="System_clock.outFreq" value="180 MHz" locked="false" accuracy=""/>
                </clock_outputs>
@@ -550,7 +557,7 @@
                   <setting id="SYSCON.PDEC.scale" value="2" locked="true"/>
                   <setting id="SYSCON.SC0CLKDIV.scale" value="18" locked="true"/>
                   <setting id="SYSCON.SC1CLKDIV.scale" value="18" locked="true"/>
-                  <setting id="SYSCON.SCTCLKDIV.scale" value="180" locked="true"/>
+                  <setting id="SYSCON.SCTCLKDIV.scale" value="1" locked="true"/>
                   <setting id="SYSCON.SCTCLKSEL.sel" value="SYSCON.MAINCLKSELB" locked="false"/>
                   <setting id="SYSCON.SYSTICKCLKDIV.scale" value="180" locked="true"/>
                   <setting id="SYSCON_PDRUNCFG0_PDEN_SYS_PLL_CFG" value="Power_up" locked="false"/>
@@ -666,7 +673,7 @@
                         <data type="Boolean">true</data>
                      </feature>
                   </dependency>
-                  <dependency resourceType="ClockOutput" resourceId="System_clock" description="System clock is inactive." problem_level="1" source="Peripherals:BOARD_InitPeripherals">
+                  <dependency resourceType="ClockOutput" resourceId="System_clock" description="System clock is inactive." problem_level="2" source="Peripherals:BOARD_InitPeripherals">
                      <feature name="frequency" evaluation="greaterThan">
                         <data type="Frequency" unit="Hz">0</data>
                      </feature>
@@ -674,11 +681,6 @@
                   <dependency resourceType="ClockOutput" resourceId="System_clock" description="System_clock is inactive." problem_level="2" source="Peripherals:BOARD_InitPeripherals">
                      <feature name="frequency" evaluation="greaterThan">
                         <data type="Frequency" unit="Hz">0</data>
-                     </feature>
-                  </dependency>
-                  <dependency resourceType="PeripheralUnifiedSignal" resourceId="CTIMER0.ctimer_match.2" description="PWM output of the match 2 channel of peripheral CTIMER0 is not routed." problem_level="1" source="Peripherals:BOARD_InitPeripherals">
-                     <feature name="routed" evaluation="equal">
-                        <data type="Boolean">true</data>
                      </feature>
                   </dependency>
                   <dependency resourceType="ClockOutput" resourceId="ADC_clock" description="ADC clock is inactive." problem_level="1" source="Peripherals:BOARD_InitPeripherals">
@@ -818,13 +820,13 @@
                         <struct name="config">
                            <setting name="clockMode" value="kSCTIMER_System_ClockMode"/>
                            <setting name="clockSource" value="SynchronousFunctionClock"/>
-                           <setting name="clockSourceFreq" value="GetFreq"/>
-                           <setting name="SCTInputClockSourceFreq" value="custom:0"/>
+                           <setting name="clockSourceFreq" value="BOARD_BootClockRUN"/>
+                           <setting name="SCTInputClockSourceFreq" value="custom:1000000"/>
                            <setting name="clockSelect" value="kSCTIMER_Clock_On_Rise_Input_0"/>
                            <setting name="enableCounterUnify" value="true"/>
                            <setting name="enableBidirection_l" value="false"/>
                            <setting name="enableBidirection_h" value="false"/>
-                           <setting name="prescale_l" value="1"/>
+                           <setting name="prescale_l" value="180"/>
                            <setting name="prescale_h" value="1"/>
                            <set name="outInitState">
                               <selected/>
@@ -856,18 +858,11 @@
                            <setting name="clockSourceFreq" value="BOARD_BootClockRUN"/>
                            <setting name="timerPrescaler" value="1MHz"/>
                         </struct>
-                        <setting name="EnableTimerInInit" value="true"/>
+                        <setting name="EnableTimerInInit" value="false"/>
                         <struct name="pwmConfig">
                            <setting name="pwmPeriodValueStr" value="16ms"/>
                            <setting name="enableInterrupt" value="false"/>
-                           <array name="pwmChannels">
-                              <struct name="0">
-                                 <setting name="pwmChannelPrefixId" value="PWM_2"/>
-                                 <setting name="pwmChannel" value="kCTIMER_Match_2"/>
-                                 <setting name="pwmDutyValueStr" value="15000"/>
-                                 <setting name="enableInterrupt" value="false"/>
-                              </struct>
-                           </array>
+                           <array name="pwmChannels"/>
                         </struct>
                         <struct name="interruptCallbackConfig">
                            <struct name="interrupt">

@@ -31,6 +31,7 @@
 #include "fsl_spi.h"
 
 #include "orio_dio.h"
+#include "orio_pwm.h"
 #include "hexdump.h"
 
 /**
@@ -67,6 +68,13 @@ static bool processControlMessage(const uint16_t *buf, uint16_t len)
 	// XXX validate the message's CRC (either here or while it is arriving
 
 	// XXX set the PWMs
+	for (int i=0; i<10; ++i)
+	{
+		int32_t v = ((int16_t)buf[4+i]);	// -32768..32767
+		v = v/64;							// -512..511
+		v += 1024+512;						// 1024..2047
+		orio_pwm_Set(i, v);
+	}
 
 	// set the digital outputs
 	setDIO(buf[14]);

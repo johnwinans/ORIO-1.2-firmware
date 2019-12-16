@@ -18,40 +18,13 @@
 //    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 //
 //**************************************************************************
+#ifndef orio_pwm_H
+#define orio_pwm_H
 
-#include <stdio.h>
-#include "board.h"
-#include "peripherals.h"
-#include "pin_mux.h"
-#include "clock_config.h"
-#include "LPC54606.h"
+#include <stdint.h>
 
-#include "orio_adc.h"
-#include "orio_spi.h"
-#include "orio_pwm.h"
+void orio_pwm_Init();
+void orio_pwm_Set(uint8_t channel, int32_t usec);
 
-/**
- *
- ******************************************************************/
-int main(void)
-{
-	// XXX For some reason the MCUXpresso code doews not power up the ADC???
-	orio_adc_EnablePower();
 
-    BOARD_InitBootPins();
-    BOARD_InitBootClocks();
-    BOARD_InitBootPeripherals();
-
-	orio_pwm_Init();
-#if 0
-	orio_pwm_Set(0, 1000);	// XXX 1 msec test
-	orio_pwm_Set(1, 2000);	// XXX 2 msec test
-	orio_pwm_Set(2, 1500);	// XXX 2 msec test
 #endif
-
-    printf("ORIO Startup Successful!\r\nBuild: %s, %s\r\n", __DATE__, __TIME__);
-
-    spitest();	// This never returns
-
-    return 0 ;
-}
