@@ -12,7 +12,7 @@
 #include <linux/spi/spidev.h>
 #include <linux/joystick.h>
 
-#include <zlib.h>
+#include "checksum.h"
 
 #define MAX_AXES	(32)
 
@@ -20,18 +20,24 @@
 static const char *device = "/dev/spidev0.0";
 static uint8_t mode;
 static uint8_t bits = 8;
+//static uint32_t speed = 10000000;
+//static uint32_t speed = 8000000;
 static uint32_t speed = 4000000;
 //static uint32_t speed = 1000000;
 //static uint32_t speed =  500000;
-//static uint32_t speed =    250000;
+//static uint32_t speed =  250000;
 //static uint32_t speed =  100000;
-//static uint32_t speed =     50000;
+//static uint32_t speed =   50000;
 
 static uint16_t delay = 0;
 
 static int spifd;
 
-#define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
+
+uint16_t crc16(void const *mem, size_t len)
+{
+	return crc_ccitt_ffff(mem, len);
+}
 
 /**
 * Print a message and exit/abort the program.
@@ -138,7 +144,7 @@ typedef struct msgHeader
 
 typedef struct msgTrailer
 {
-	uint32_t	crc;		// CRC32
+	uint16_t	crc;		// CRC16
 } msgTrailer;
 
 typedef struct msg1
@@ -149,7 +155,7 @@ typedef struct msg1
 	uint16_t	led;		// 15
 	uint16_t	relay;		// 16
 	uint16_t	solenoid;	// 17
-	msgTrailer	t;			// 18-19
+	msgTrailer	t;			// 18
 } msg1;
 
 typedef struct msg2
@@ -159,8 +165,7 @@ typedef struct msg2
 	uint16_t	adc[8];		// 5-12
 	uint16_t	vbatt;		// 13
 	uint16_t	dio;		// 14
-	uint16_t	pad;		// 15
-	msgTrailer	t;			// 16-17
+	msgTrailer	t;			// 15
 } msg2;
 
 /**
@@ -197,7 +202,7 @@ static void transfer(int fd, int16_t left, int16_t right)
 	tx.tx.led = htons(~led);
 	tx.tx.relay = htons(led);
 	tx.tx.solenoid = htons(led);
-	tx.tx.t.crc = htonl(crc32(0, (unsigned char*)&tx, sizeof(tx)-sizeof(msgTrailer)));
+	tx.tx.t.crc = htons(crc16((uint8_t *)&tx.tx, sizeof(tx.tx)-sizeof(msgTrailer)));
 
 	led >>= 1;
 	if (!led)
@@ -216,7 +221,7 @@ static void transfer(int fd, int16_t left, int16_t right)
 	if (ret < 1)
 		pabort("can't send spi message");
 
-#define DEBUG_PRINT
+//#define DEBUG_PRINT
 #ifdef DEBUG_PRINT
 	printf("TX:\n");
 	hexDump(&tx, sizeof(tx), 0);
@@ -224,9 +229,9 @@ static void transfer(int fd, int16_t left, int16_t right)
 	printf("RX:\n");
 	hexDump(&rx, sizeof(rx), 0);
 
-	rx.rx.t.crc = ntohl(rx.rx.t.crc);
-	uint32_t rxcrc = crc32(0, (unsigned char*)&rx, sizeof(rx.rx)-sizeof(msgTrailer));
-	printf(" CRC: %08x %s\n", rxcrc, rxcrc==rx.rx.t.crc ? "+" : "error");
+	rx.rx.t.crc = ntohs(rx.rx.t.crc);
+	uint32_t rxcrc = crc16((unsigned char*)&rx, sizeof(rx.rx)-sizeof(msgTrailer));
+	printf(" CRC: %04x (want %04x) %s\n", rx.rx.t.crc, rxcrc, rxcrc==rx.rx.t.crc ? "+" : "error");
 
 	rx.rx.h.header = ntohs(rx.rx.h.header);
 	rx.rx.h.msgType = ntohs(rx.rx.h.msgType);
@@ -313,9 +318,6 @@ int main(int argc, char *argv[])
     int16_t axes[MAX_AXES] = {0};
 	int16_t tank[2] = {0};
     size_t axis;
-
-	//const char *s = "The quick brown fox jumps over the lazy dog";
-	//printf("   CRC32: %lX\n", crc32(0, (const void*)s, strlen(s)));
 
 	spiInit();
 
