@@ -38,10 +38,10 @@ void hexDump(const void *a, unsigned long len)
 	while(len)
 	{
 		if (((uint32_t)p)%16 == 0)
-			printf("\r\n%8x: ", (uint32_t)p);
+			printf("\n%8x: ", (uint32_t)p);
 		printf("%s%02x", (((uint32_t)p)%16 == 8)?"-":" ", *p);
 		++p;
 		--len;
 	}
-    printf("\r\n");
+    printf("\n");
 }

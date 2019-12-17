@@ -39,7 +39,7 @@
 /**
  * @param data Buffer of data to calculate.
  * @param dataSize number of bytes in 'data'
- */
+ ******************************************************************/
 static uint32_t crc32(const void *data, size_t dataSize)
 {
 	CRC_1_PERIPHERAL->SEED = 0xffffffff;
@@ -48,6 +48,13 @@ static uint32_t crc32(const void *data, size_t dataSize)
 }
 #endif
 
+/**
+ * Calculate a CRC32 of an array of 16-bit words.
+ * The data array is byte-swapped while read.
+ *
+ * @param data Buffer of data to calculate.
+ * @param dataSize number of 16-bit words in 'data'
+ ******************************************************************/
 static uint32_t crc32_16le(const void *data, size_t dataSize)
 {
 	CRC_1_PERIPHERAL->SEED = 0xffffffff;
@@ -67,23 +74,23 @@ static bool processControlMessage(const uint16_t *buf, uint16_t len)
 {
 #if 0
 	hexDump(buf, len*2);
-	printf("len=%d, 0: %5d, 1: %5d, DIO=%04x\r\n", len, (int16_t)buf[4], (int16_t)buf[5], buf[14]);
+	printf("len=%d, 0: %5d, 1: %5d, DIO=%04x\n", len, (int16_t)buf[4], (int16_t)buf[5], buf[14]);
 #endif
 
 	// check the message integrity.
 	if (len < 20)
 	{
-		printf("Invalid message received. Length=%d, expect 40\r\n", len*2);
+		printf("Invalid message received. Length=%d, expect 40\n", len*2);
 		return false;
 	}
 	if (buf[0] != 0xa55a)
 	{
-		printf("Invalid message received. Header invalid. Want 0xaa55, got 0x%04x\r\n", buf[0]);
+		printf("Invalid message received. Header invalid. Want 0xaa55, got 0x%04x\n", buf[0]);
 		return false;
 	}
 	if (buf[1] != 0x0001)
 	{
-		printf("Invalid message received. Message type invalid. Want 0x0001, got 0x%04x\r\n", buf[1]);
+		printf("Invalid message received. Message type invalid. Want 0x0001, got 0x%04x\n", buf[1]);
 		return false;
 
 	}
@@ -117,6 +124,9 @@ static bool processControlMessage(const uint16_t *buf, uint16_t len)
 }
 
 #if 0
+/**
+ *
+ ******************************************************************/
 static void crc_test()
 {
 	char buf[] = "The quick brown fox jumps over the lazy dog";
@@ -127,11 +137,13 @@ static void crc_test()
 	for (int i=0; i<len; ++i)
 		*((volatile uint8_t *)&(CRC_1_PERIPHERAL->WR_DATA)) = buf[i];
 	// should be 0414fa339
-	printf("crc=%08x\r\n", CRC_1_PERIPHERAL->SUM);
+	printf("crc=%08x\n", CRC_1_PERIPHERAL->SUM);
 }
 #endif
 
-
+/**
+ *
+ ******************************************************************/
 static void spiTX16(uint16_t i)
 {
 	SPI_WriteData(SPI_1_PERIPHERAL, i, 0);
@@ -139,6 +151,9 @@ static void spiTX16(uint16_t i)
 	*((volatile uint8_t *)&(CRC_1_PERIPHERAL->WR_DATA)) = (uint8_t)(i&0x0ff);
 }
 
+/**
+ *
+ ******************************************************************/
 static void spiTxHeader(uint16_t type, uint16_t len)
 {
 	CRC_1_PERIPHERAL->SEED = 0xffffffff;
@@ -157,7 +172,7 @@ void spitest()
     ADC_EnableConvSeqABurstMode(ADC_1_PERIPHERAL, true);
 
 	SPI_Type *base = SPI_1_PERIPHERAL;
-	printf("SPI message loop entered\r\n");
+	printf("SPI message loop entered\n");
 
 	// prime the FIFO for the next transfer
     base->FIFOCFG |= SPI_FIFOCFG_EMPTYTX_MASK | SPI_FIFOCFG_EMPTYRX_MASK;
@@ -241,8 +256,8 @@ void spitest()
 			int elements = pos>=sizeof(buf)/sizeof(buf[0])?sizeof(buf)/sizeof(buf[0]):pos;
 #if 0
 			hexDump(buf, elements*2);
-			printf("stat=%08x, len=%d, 0: %5d, 1: %5d, DIO=%04x\r\n", fifostat, pos, (int16_t)buf[2], (int16_t)buf[3], buf[12]);
-			printf("CRC=%08x\r\n", CRC_1_PERIPHERAL->SUM);
+			printf("stat=%08x, len=%d, 0: %5d, 1: %5d, DIO=%04x\n", fifostat, pos, (int16_t)buf[2], (int16_t)buf[3], buf[12]);
+			printf("CRC=%08x\n", CRC_1_PERIPHERAL->SUM);
 #endif
 
 			processControlMessage(buf, elements);

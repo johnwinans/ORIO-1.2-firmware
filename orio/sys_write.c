@@ -31,10 +31,15 @@
  * @param iLength The the number of bytes to be written.
  *
  * @return 0 for success or the number of bytes unwritten if an error 
- *	has occured. 
+ *	has occurred.
  ***************************************************************************/
 int __sys_write(int iFileHandle, char *pcBuffer, int iLength)
 {
-	USART_WriteBlocking(USART_1_PERIPHERAL, (uint8_t*) pcBuffer, iLength);
+	for (int i=0; i<iLength; ++i)
+	{
+		if (pcBuffer[i] == '\n')
+			USART_WriteBlocking(USART_1_PERIPHERAL, (uint8_t*)"\r", 1);
+		USART_WriteBlocking(USART_1_PERIPHERAL, (uint8_t*) &pcBuffer[i], 1);
+	}
 	return 0;
 }

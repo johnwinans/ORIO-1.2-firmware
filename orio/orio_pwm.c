@@ -114,7 +114,7 @@ void orio_pwm_Set(uint8_t channel, int32_t usec)
 	if (usec > SCT_COUNTER_LIMIT)
 		usec = SCT_COUNTER_LIMIT;
 
-	//	printf("val = %d\r\n", usec);
+	//	printf("val = %d\n", usec);
 
 	if (channel == 2)
 		orio_pwm_set_ctimer(usec);

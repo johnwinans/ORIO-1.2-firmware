@@ -49,7 +49,7 @@ int main(void)
 	orio_pwm_Set(2, 1500);	// XXX 2 msec test
 #endif
 
-    printf("ORIO Startup Successful!\r\nBuild: %s, %s\r\n", __DATE__, __TIME__);
+    printf("ORIO Startup Successful!\nBuild: %s, %s\n", __DATE__, __TIME__);
 
     spitest();	// This never returns
 
