@@ -1,0 +1,91 @@
+# example.pcf
+
+set_io clk	21		# 12 mhz clock in
+set_io rst_n 119	# J1_10
+
+set_io led0 96
+set_io led1 97
+set_io led2 98
+set_io led3 99
+set_io led4 7
+set_io led5 8
+set_io led6 9
+set_io led7 10
+
+set_io spi_miso 78	# pmod 1
+set_io spi_ss 79	# pmod 2
+set_io spi_mosi 80	# pmod 3
+set_io spi_sck 81	# pmod 4
+#set_io spi_miso 62	# J3_3
+#set_io spi_ss 61	# J3_4
+#set_io spi_mosi 60	# J3_5
+#set_io spi_sck 56	# J3_6
+
+set_io quad_a0 87	# pmod 7
+set_io quad_b0 88	# pmod 8
+
+#set_io quad_a0 48	# J3_7
+#set_io quad_b0 47	# J3_8
+set_io quad_a1 45	# J3_9
+set_io quad_b1 44	# J3_10
+set_io quad_a2 112	# J1_3
+set_io quad_b2 113	# J1_4
+set_io quad_a3 114	# J1_5
+set_io quad_b3 115	# J1_6
+set_io quad_a4 116	# J1_7
+set_io quad_b4 117	# J1_8
+
+#set_io CLK_IN 21	@ 12 mhz in
+
+#set_io J3_10 44
+#set_io J3_9 45
+#set_io J3_8 47
+#set_io J3_7 48
+#set_io J3_6 56
+#set_io J3_5 60
+#set_io J3_4 61
+#set_io J3_3 62
+
+#set_io GLED5 95
+#set_io RLED4 96
+#set_io RLED3 97
+#set_io RLED2 98
+#set_io RLED1 99
+#set_io IR_TX 105
+#set_io IR_RX 106
+#set_io IR_SD 107
+
+#set_io J1_3 112
+#set_io J1_4 113
+#set_io J1_5 114
+#set_io J1_6 115
+#set_io J1_7 116
+#set_io J1_8 117
+#set_io J1_9 118
+#set_io J1_10 119
+
+#set_io pmod_1 78
+#set_io pmod_2 79
+#set_io pmod_3 80
+#set_io pmod_4 81
+#set_io pmod_7 87
+#set_io pmod_8 88
+#set_io pmod_9 90
+#set_io pmod_10 91
+
+#set_io DCD 1  # out
+#set_io DSR 2  # out
+#set_io DTR 3  # in
+#set_io CTS 4  # out
+#set_io RTS 7  # in
+#set_io TX 8  # in
+#set_io RX 9  # in
+
+# 67 SPI MOSI	
+# 68 SPI MISO	
+# 70 SPI SCK	
+# 71 SPI SS_B	
+
+# 105 IR TXD	
+# 106 IR RXD	
+# 107 IR SD	
