@@ -40,30 +40,30 @@
  * @param data Buffer of data to calculate.
  * @param dataSize number of bytes in 'data'
  ******************************************************************/
-static uint32_t crc32(const void *data, size_t dataSize)
+static uint32_t crc16(const void *data, size_t dataSize)
 {
-	CRC_1_PERIPHERAL->SEED = 0xffffffff;
+	CRC_1_PERIPHERAL->SEED = 0xffff;
 	CRC_WriteData(CRC_1_PERIPHERAL, (const uint8_t*)data, dataSize);
 	return CRC_1_PERIPHERAL->SUM;
 }
-#endif
+#else
 
 /**
- * Calculate a CRC32 of an array of 16-bit words.
+ * Calculate a CRC16 of an array of 16-bit words.
  * The data array is byte-swapped while read.
  *
  * @param data Buffer of data to calculate.
  * @param dataSize number of 16-bit words in 'data'
  ******************************************************************/
-static uint32_t crc32_16le(const void *data, size_t dataSize)
+static uint32_t crc16_16le(const void *data, size_t dataSize)
 {
-	CRC_1_PERIPHERAL->SEED = 0xffffffff;
+	CRC_1_PERIPHERAL->SEED = 0xffff;
 	uint16_t *p = (uint16_t*)data;
 	for (int i=0; i<dataSize; ++i)
 		*((__O uint16_t *)&(CRC_1_PERIPHERAL->WR_DATA)) = (p[i]>>8)|(p[i]<<8);
 	return CRC_1_PERIPHERAL->SUM;
 }
-
+#endif
 /**
  * @param len Message length expressed in 16-bit words.
  *
@@ -78,9 +78,9 @@ static bool processControlMessage(const uint16_t *buf, uint16_t len)
 #endif
 
 	// check the message integrity.
-	if (len < 20)
+	if (len < 19)
 	{
-		printf("Invalid message received. Length=%d, expect 40\n", len*2);
+		printf("Invalid message received. Length=%d, expect 38\n", len*2);
 		return false;
 	}
 	if (buf[0] != 0xa55a)
@@ -96,11 +96,11 @@ static bool processControlMessage(const uint16_t *buf, uint16_t len)
 	}
 
 	// verify the CRC in the received message
-	uint32_t crc = crc32_16le(buf, len-2);
-	uint32_t mcrc = (buf[18]<<16)|(buf[19]);
+	uint32_t crc = crc16_16le(buf, len-1);
+	uint32_t mcrc = buf[18];
 	if (crc != mcrc)
 	{
-		printf("CRC FAIL.  Got %08x, want %08x\n", crc, mcrc);
+		printf("CRC FAIL.  Got %04x, want %04x\n", crc, mcrc);
 		hexDump(buf, len*2);
 		return false;
 	}
@@ -123,32 +123,18 @@ static bool processControlMessage(const uint16_t *buf, uint16_t len)
 	return true;
 }
 
-#if 0
 /**
- *
- ******************************************************************/
-static void crc_test()
-{
-	char buf[] = "The quick brown fox jumps over the lazy dog";
-	CRC_1_PERIPHERAL->SEED = 0xffffffff;
-	//CRC_1_PERIPHERAL->SEED = 0;
-
-	int len = strlen(buf);
-	for (int i=0; i<len; ++i)
-		*((volatile uint8_t *)&(CRC_1_PERIPHERAL->WR_DATA)) = buf[i];
-	// should be 0414fa339
-	printf("crc=%08x\n", CRC_1_PERIPHERAL->SUM);
-}
-#endif
-
-/**
- *
+ * Write the given uint16 to the SPI and also to the CRC generator.
  ******************************************************************/
 static void spiTX16(uint16_t i)
 {
 	SPI_WriteData(SPI_1_PERIPHERAL, i, 0);
+#if 0
+	*((volatile uint16_t *)&(CRC_1_PERIPHERAL->WR_DATA)) = i;
+#else
 	*((volatile uint8_t *)&(CRC_1_PERIPHERAL->WR_DATA)) = (uint8_t)(i>>8&0x0ff);
 	*((volatile uint8_t *)&(CRC_1_PERIPHERAL->WR_DATA)) = (uint8_t)(i&0x0ff);
+#endif
 }
 
 /**
@@ -156,7 +142,7 @@ static void spiTX16(uint16_t i)
  ******************************************************************/
 static void spiTxHeader(uint16_t type, uint16_t len)
 {
-	CRC_1_PERIPHERAL->SEED = 0xffffffff;
+	CRC_1_PERIPHERAL->SEED = 0xffff;
     spiTX16(0xa55a);		// message header
     spiTX16(type);			// message type
     spiTX16(len);			// length
@@ -177,7 +163,6 @@ void spitest()
 	// prime the FIFO for the next transfer
     base->FIFOCFG |= SPI_FIFOCFG_EMPTYTX_MASK | SPI_FIFOCFG_EMPTYRX_MASK;
     base->FIFOSTAT |= SPI_FIFOSTAT_TXERR_MASK | SPI_FIFOSTAT_RXERR_MASK;
-
 
     spiTxHeader(0x0002, 36);
 
@@ -217,14 +202,9 @@ void spitest()
 					break;
 
 			case 11:
-				spiTX16(0);	// padding to keep the CRC on a 32-bit boundary
-				break;
-
-			case 12:
 				{
 					// this is tolerable because we only prime the FIFO with 4 words (and it can hold 8)
 					uint32_t crc = CRC_1_PERIPHERAL->SUM;
-					spiTX16(crc>>16&0x0ffff);
 					spiTX16(crc&0x0ffff);
 				}
 				break;

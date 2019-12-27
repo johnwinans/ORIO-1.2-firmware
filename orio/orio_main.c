@@ -43,11 +43,6 @@ int main(void)
     BOARD_InitBootPeripherals();
 
 	orio_pwm_Init();
-#if 0
-	orio_pwm_Set(0, 1000);	// XXX 1 msec test
-	orio_pwm_Set(1, 2000);	// XXX 2 msec test
-	orio_pwm_Set(2, 1500);	// XXX 2 msec test
-#endif
 
     printf("ORIO Startup Successful!\nBuild: %s, %s\n", __DATE__, __TIME__);
 
