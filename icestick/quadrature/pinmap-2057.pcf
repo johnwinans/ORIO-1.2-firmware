@@ -1,0 +1,30 @@
+# example.pcf
+
+set_io clk	52		# 12 mhz clock in
+set_io rst_n 144
+
+set_io led0 1
+set_io led1 3
+set_io led2 4
+set_io led3 7
+set_io led4 8
+set_io led5 9
+set_io led6 10
+set_io led7 11
+
+set_io spi_miso 67	
+set_io spi_mosi 68	
+set_io spi_sck 70	
+set_io spi_ss 71	
+
+set_io quad_a0	12
+set_io quad_b0	15
+
+set_io quad_a1	22
+set_io quad_b1 	23
+set_io quad_a2	24
+set_io quad_b2	25
+set_io quad_a3	26
+set_io quad_b3	28
+set_io quad_a4 	29
+set_io quad_b4 	31
