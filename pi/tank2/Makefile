@@ -2,15 +2,14 @@ CFLAGS+=-Wall -Werror
 LDLIBS+=-lz
 
 OBJ=\
-	tank.o\
-	crcccitt.o
+	tank.o
 
 all: tank
 
 tank: $(OBJ)
-	$(LINK.c) -o $@ $^
+	$(LINK.c) -o $@ $^ $(LDLIBS)
 
 clean:
-	rm -f $(OBJ) tank spin
+	rm -f $(OBJ) tank
 
 world: clean all

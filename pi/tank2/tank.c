@@ -12,7 +12,8 @@
 #include <linux/spi/spidev.h>
 #include <linux/joystick.h>
 
-#include "checksum.h"
+#include <zlib.h>
+
 
 #define MAX_AXES	(32)
 
@@ -33,11 +34,6 @@ static uint16_t delay = 0;
 
 static int spifd;
 
-
-uint16_t crc16(void const *mem, size_t len)
-{
-	return crc_ccitt_ffff(mem, len);
-}
 
 /**
 * Print a message and exit/abort the program.
@@ -134,75 +130,62 @@ size_t get_axis_state(struct js_event *event, int16_t axes[MAX_AXES])
     return axis;
 }
 
-typedef struct msgHeader
-{
-	uint16_t	header;		// 0 0xa55a
-	uint16_t	msgType;	// 1
-	uint16_t	length;		// 2
-	uint16_t	pad;		// 3
-} msgHeader;
 
-typedef struct msgTrailer
+struct odlc_frame
 {
-	uint16_t	crc;		// CRC16
-} msgTrailer;
+    uint8_t     version;        // set to 0
+    uint8_t     ftype;          // the type of frame: 1=data, 2=command
+    union
+    {
+        struct
+        {
+            uint8_t     data[1024];
+            uint8_t     crc[4];
+        } d;
+        struct
+        {
+            uint8_t     cmd;    // 0=reset, 1=ACK, 2=NAK
+            uint8_t     pad;    // make crc start on a 16-bit boundary
+            uint8_t     crc[4];
+        } c;
+    } u;
+};
 
-typedef struct msg1
-{
-	msgHeader	h;			// 0-3
-	int16_t		pwm[10];	// 4-13
-	uint16_t	dio;		// 14
-	uint16_t	led;		// 15
-	uint16_t	relay;		// 16
-	uint16_t	solenoid;	// 17
-	msgTrailer	t;			// 18
-} msg1;
+#define ODLC_MAX_FRAME_SIZE     (sizeof(struct odlc_frame))
+#define ODLC_FTYPE_DATA         (1)
+#define ODLC_FTYPE_COMMAND      (2)
+#define ODLC_COMMAND_RESET      (0)
+#define ODLC_COMMAND_ACK        (1)
+#define ODLC_COMMAND_NAK        (2)
 
-typedef struct msg2
-{
-	msgHeader	h;			// 0-3
-	uint16_t	switches;	// 4
-	uint16_t	adc[8];		// 5-12
-	uint16_t	vbatt;		// 13
-	uint16_t	dio;		// 14
-	msgTrailer	t;			// 15
-} msg2;
 
 /**
 ***************************************************************************/
 static void transfer(int fd, int16_t left, int16_t right)
 {
 	int ret;
-	typedef union
-	{
-		msg1 tx;
-		msg2 rx;
-	}buf;
-	
-	buf tx;
-	buf rx;
+
+	struct odlc_frame tx;
+	struct odlc_frame rx;
 
 	static int led = 0x100;
 
-	tx.tx.h.header = htons(0xa55a);
-	tx.tx.h.msgType = htons(0x0001);
-	tx.tx.h.length = htons(sizeof(tx));
-	tx.tx.h.pad = 0;
-	tx.tx.pwm[0] = htons(right);
-	tx.tx.pwm[1] = htons(left);
-	tx.tx.pwm[2]= htons(left);
-	tx.tx.pwm[3] = htons(left);
-	tx.tx.pwm[4] = htons(left);
-	tx.tx.pwm[5] = htons(left);
-	tx.tx.pwm[6] = htons(left);
-	tx.tx.pwm[7] = htons(left);
-	tx.tx.pwm[8] = htons(left);
-	tx.tx.pwm[9] = htons(left);
-	tx.tx.dio = htons(0);
-	tx.tx.led = htons(~led);
-	tx.tx.relay = htons(led);
-	tx.tx.solenoid = htons(led);
-	tx.tx.t.crc = htons(crc16((uint8_t *)&tx.tx, sizeof(tx.tx)-sizeof(msgTrailer)));
+
+	memset(&tx, 0, sizeof(tx));
+	memset(&rx, 0, sizeof(rx));
+
+	tx.version = 0;
+    tx.ftype = 2;
+    tx.u.c.cmd = ODLC_COMMAND_NAK;
+    tx.u.c.pad = 0;
+
+    uint32_t i = crc32(0, (unsigned char *)&tx, 4);
+    tx.u.c.crc[0] = (i>>24) & 0x0ff;            // big endian CRC32
+    tx.u.c.crc[1] = (i>>16) & 0x0ff;
+    tx.u.c.crc[2] = (i>>8) & 0x0ff;
+    tx.u.c.crc[3] = (i>>0) & 0x0ff;
+
+	uint16_t xferLength = 8;
 
 	led >>= 1;
 	if (!led)
@@ -211,7 +194,7 @@ static void transfer(int fd, int16_t left, int16_t right)
 	struct spi_ioc_transfer tr = {
 		.tx_buf = (unsigned long)&tx,
 		.rx_buf = (unsigned long)&rx,
-		.len = sizeof(tx),
+		.len = xferLength,
 		.delay_usecs = delay,
 		.speed_hz = speed,
 		.bits_per_word = bits,
@@ -224,35 +207,16 @@ static void transfer(int fd, int16_t left, int16_t right)
 #define DEBUG_PRINT
 #ifdef DEBUG_PRINT
 	printf("TX:\n");
-	hexDump(&tx, sizeof(tx), 0);
+	hexDump(&tx, xferLength, 0); //sizeof(tx), 0);
 
 	printf("RX:\n");
-	hexDump(&rx, sizeof(rx), 0);
+	hexDump(&rx, xferLength, 0); //sizeof(rx), 0);
 
-	rx.rx.t.crc = ntohs(rx.rx.t.crc);
-	uint32_t rxcrc = crc16((unsigned char*)&rx, sizeof(rx.rx)-sizeof(msgTrailer));
-	printf(" CRC: %04x (want %04x) %s\n", rx.rx.t.crc, rxcrc, rxcrc==rx.rx.t.crc ? "+" : "error");
-
-	rx.rx.h.header = ntohs(rx.rx.h.header);
-	rx.rx.h.msgType = ntohs(rx.rx.h.msgType);
-	rx.rx.h.length = ntohs(rx.rx.h.length);
-
-	printf("msg: %04x, %04x, %04x\n", rx.rx.h.header, rx.rx.h.msgType, rx.rx.h.length);
-
-	for (int i=0; i < 8; ++i)
-	{
-		float f = ntohs(rx.rx.adc[i]) * (3.3/0x10000)*2.0;
-		printf("%2d: %f\n", i, f);
-	}
-	float f = ntohs(rx.rx.vbatt)*(3.3/0x10000)*(33.0+3.3)/3.3;
-	printf("+V: %f\n", f);
-	
-	printf("DIO: %04x\n", ntohs(rx.rx.dio));
-	printf(" SW: %04x\n", ntohs(rx.rx.switches));
 #endif
 
 // XXX
-	//usleep(100000);	// XXX wait for the ORIO to print its message status
+	sleep(2);
+	//usleep(500000);	// XXX wait for the ORIO to print its message status
 }
 
 /**
@@ -320,6 +284,13 @@ int main(int argc, char *argv[])
     size_t axis;
 
 	spiInit();
+
+#if 1
+	while(1)
+		transfer(spifd, 0, 0);
+
+#endif
+
 
     if (argc > 1)
         device = argv[1];
