@@ -1,0 +1,4 @@
+Ideas:
+
+Add a failsafe mode that halts the PWM when SPI messages are not active.
+Combine the PWM & SPI apps.

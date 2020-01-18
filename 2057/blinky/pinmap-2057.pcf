@@ -1,0 +1,12 @@
+set_io clk	52		# clock input (from oscillator)
+
+set_io rst_n 142	# S1
+
+set_io led0 118		# D3
+set_io led1 116		# D4
+set_io led2 115		# D5
+set_io led3 114		# D6
+set_io led4 113		# D7
+set_io led5 112		# D8
+set_io led6 110		# D9
+set_io led7 107		# D10

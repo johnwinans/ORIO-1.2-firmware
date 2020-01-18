@@ -1,0 +1,6 @@
+20200109 jrw
+
+This uses the 25MHZ oscillator on the 2057 board to clock 
+a free-running counter whose binary value is rendered on
+the pins defined as led0-7 in the pinmap-2057.pcf file.
+
