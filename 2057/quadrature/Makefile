@@ -15,7 +15,9 @@ PINS=pinmap-2057.pcf
 FILES=\
 	SPI_slave.v\
 	top.v\
-	quadin.v\
+	quadinx.v\
+	pll_25_100.v\
+	pll_25_40.v\
 	signal_sync.v
 
 .PHONY: all clean burn
@@ -31,7 +33,7 @@ all:
 	icepack $(BUILD)/$(PROJ).asc $(BUILD)/$(PROJ).bin
 
 timings:
-	icetime -tmd hx1k  $(BUILD)/$(PROJ).asc
+	icetime -tmd hx$(DEVICE)  $(BUILD)/$(PROJ).asc
 
 burn:
 	iceprog $(BUILD)/$(PROJ).bin

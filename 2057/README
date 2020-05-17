@@ -2,3 +2,26 @@ Ideas:
 
 Add a failsafe mode that halts the PWM when SPI messages are not active.
 Combine the PWM & SPI apps.
+
+
+To program a FLASH ROM on a PI, use the flashrom utility:
+
+# To read a ROM:
+flashrom -p linux_spi:dev=/dev/spidev0.0,spispeed=1000 -r outfile.bin
+
+# To program a ROM:
+flashrom -p linux_spi:dev=/dev/spidev0.0,spispeed=1000 -w infile.bin
+
+# add -VVV for verbose output
+
+
+To program a partial:
+
+Create a layout file describing the region used by the FPGA:
+
+cat > hx4k.layout <<!
+00000000:00020FBC hx4k
+00020FBD:00107FFF unused
+!
+
+flashrom -p linux_spi:dev=/dev/spidev0.0,spispeed=1000 --layout hx4k.layout --image hx4k -w pwm.bin

@@ -1,5 +1,6 @@
-set_io clk	52		# 25 mhz clock in (onboard oscillator)
-set_io rst_n 142
+set_io clk25	52		# 25 mhz clock in (onboard oscillator)
+set_io refclk	1		# output the reference clock for debugging
+set_io rst_n	142
 
 set_io led0 118
 set_io led1 116
